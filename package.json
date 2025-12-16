@@ -1,5 +1,5 @@
 {
-  "name": "ponto",
+  "name": "facilita-ponto-cli",
   "version": "1.0.0",
   "description": "CLI tool para registrar ponto no sistema Facilita Ponto",
   "type": "module",
