@@ -7,7 +7,7 @@ CLI tool para registrar ponto no sistema **Facilita Ponto**.
 ## Instalação
 
 ```bash
-bun install
+bun add -g facilita-ponto-cli
 ```
 
 ## Uso
@@ -32,11 +32,9 @@ Para registrar o ponto:
 ```bash
 ponto
 ```
-
 ou
-
-```bash
-ponto ponto
+```
+bun ponto
 ```
 
 ## Comandos
