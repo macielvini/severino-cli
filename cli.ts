@@ -3,21 +3,21 @@ import meow from "meow";
 const cli = meow(
   `
 Usage
-  $ ponto <command>
+  $ severino <command> [subcommand]
 
 Commands
-  ponto auth    Configura autenticação
-  ponto         Registra o ponto
+  severino ponto           Registra o ponto
+  severino ponto config    Configura autenticação
 
 Options
   --help, -h           Exibe esta mensagem
   --version, -v        Exibe a versão
-  --update-cookies     Força atualização dos cookies de autenticação
+  --update-cookies     Força atualização dos cookies de autenticação durante a execução do comando
 
 Examples
-  $ ponto auth
-  $ ponto
-  $ ponto --update-cookies
+  $ severino ponto config
+  $ severino ponto
+  $ severino ponto --update-cookies
 `,
   {
     importMeta: import.meta,

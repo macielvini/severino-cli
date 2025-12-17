@@ -1,13 +1,18 @@
 import path from "node:path";
-import { mkdir, writeFile, readFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import os from "node:os";
+import {
+  CookieSaveError,
+  CredentialsIncompleteError,
+  RegistroTokenNotFoundError,
+} from "./errors";
 
 export function getConfigDir(): string {
-  return path.join(os.homedir(), ".config", "ponto");
+  return path.join(os.homedir(), ".config", "severino", "ponto");
 }
 
 export function getAuthConfigPath(): string {
-  return path.join(getConfigDir(), "auth.json");
+  return path.join(getConfigDir(), "config.json");
 }
 
 export interface AuthConfig {
@@ -19,8 +24,7 @@ export interface AuthConfig {
 export async function loadAuthConfig(): Promise<AuthConfig | null> {
   const configFile = getAuthConfigPath();
   try {
-    const content = await readFile(configFile, "utf8");
-    return JSON.parse(content);
+    return (await Bun.file(configFile).json()) as AuthConfig;
   } catch {
     return null;
   }
@@ -31,7 +35,7 @@ export async function saveAuthConfig(config: AuthConfig): Promise<void> {
   const configFile = getAuthConfigPath();
   await mkdir(configDir, { recursive: true });
   const payload = JSON.stringify(config);
-  await writeFile(configFile, payload, { encoding: "utf8" });
+  await Bun.write(configFile, payload);
 }
 
 export function parseSetCookieHeaders(
@@ -100,7 +104,7 @@ export async function loadCookies(): Promise<Record<string, string>> {
   const cookieFile = path.join(configDir, "cookies.txt");
 
   try {
-    const content = await readFile(cookieFile, "utf8");
+    const content = await Bun.file(cookieFile).text();
     return parseCookieString(content.trim());
   } catch {
     return {};
@@ -116,9 +120,9 @@ export async function saveCookies(
   try {
     await mkdir(configDir, { recursive: true });
     const cookieString = getCookieString(cookies);
-    await writeFile(cookieFile, cookieString, { encoding: "utf8" });
+    await Bun.write(cookieFile, cookieString);
   } catch (error) {
-    console.error("Erro ao salvar cookies:", error);
+    throw new CookieSaveError({ cause: error });
   }
 }
 
@@ -129,7 +133,7 @@ export function extractRegistroFromHtml(html: string): string {
   if (registroMatch && registroMatch[1]) {
     return registroMatch[1];
   } else {
-    throw new Error("Token de registro não encontrado na resposta HTML.");
+    throw new RegistroTokenNotFoundError();
   }
 }
 
@@ -142,14 +146,10 @@ export function decodeEmployeeId(employeeId: string): string {
 export async function getEncodedEmployee(): Promise<string> {
   const authConfig = await loadAuthConfig();
   if (!authConfig) {
-    throw new Error(
-      "Credenciais incompletas. Execute 'ponto auth' para configurar."
-    );
+    throw new CredentialsIncompleteError();
   }
-  if (!authConfig.cpf || !authConfig.cpf || !authConfig.funcionario) {
-    throw new Error(
-      "Credenciais incompletas. Execute 'ponto auth' para configurar."
-    );
+  if (!authConfig.emp || !authConfig.cpf || !authConfig.funcionario) {
+    throw new CredentialsIncompleteError();
   }
   return Buffer.from(
     JSON.stringify({

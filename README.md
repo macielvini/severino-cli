@@ -1,23 +1,21 @@
-# Ponto
+# Severino
 
-CLI tool para registrar ponto no sistema **Facilita Ponto**.
-
-> ⚠️ Este projeto funciona apenas para o sistema "Facilita Ponto" (sistema.facilitaponto.com.br).
+CLI tool de Loomer para Loomers
 
 ## Instalação
 
 ```bash
-bun add -g facilita-ponto-cli
+bun add -g severino-cli
 ```
 
-## Uso
+## Usando a funcionalidade de bater ponto
 
 ### Configurar autenticação
 
 Primeiro, configure suas credenciais:
 
 ```bash
-ponto auth
+severino ponto config
 ```
 
 Você precisará informar:
@@ -30,18 +28,14 @@ Você precisará informar:
 Para registrar o ponto:
 
 ```bash
-ponto
-```
-ou
-```
-bun ponto
+severino ponto
 ```
 
 ## Comandos
 
-- `ponto auth` - Configura autenticação
-- `ponto` ou `ponto ponto` - Registra o ponto
-- `ponto help` - Exibe ajuda
+- `severino ponto config` - Configura autenticação
+- `severino ponto` - Registra o ponto
+- `severino cara` - Comando de teste
 
 ## Requisitos
 

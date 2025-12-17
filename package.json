@@ -1,11 +1,11 @@
 {
-  "name": "facilita-ponto-cli",
-  "version": "1.0.0",
-  "description": "CLI tool para registrar ponto no sistema Facilita Ponto",
+  "name": "severino-cli",
+  "version": "1.0.1",
+  "description": "Severino is a CLI tool for Loomi",
   "type": "module",
   "main": "index.ts",
   "bin": {
-    "ponto": "./index.ts"
+    "severino": "./index.ts"
   },
   "files": [
     "index.ts",
@@ -14,16 +14,15 @@
     "README.md"
   ],
   "keywords": [
-    "ponto",
-    "facilita-ponto",
-    "cli",
-    "time-tracking"
+    "severino",
+    "loomi",
+    "cli"
   ],
-  "author": "Vinicius Maciel",
+  "author": "github.com/macielvini",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/macielvini/ponto"
+    "url": "https://github.com/macielvini/severino-cli"
   },
   "engines": {
     "bun": ">=1.0.0",
