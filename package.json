@@ -1,18 +1,12 @@
 {
   "name": "severino-cli",
-  "version": "1.0.2",
+  "version": "1.0.5",
   "description": "Severino is a CLI tool for Loomi",
   "type": "module",
   "main": "index.ts",
   "bin": {
     "severino": "./index.ts"
   },
-  "files": [
-    "index.ts",
-    "cli.ts",
-    "utils.ts",
-    "README.md"
-  ],
   "keywords": [
     "severino",
     "loomi",

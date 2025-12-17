@@ -184,8 +184,6 @@ async function registerPoint(): Promise<void> {
 
   let response: Response;
   try {
-    return;
-
     response = await fetch(
       "https://sistema.facilitaponto.com.br/registrar/grava",
       {
