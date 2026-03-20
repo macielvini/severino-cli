@@ -35,6 +35,7 @@ severino ponto
 
 - `severino ponto config` - Configura autenticação
 - `severino ponto` - Registra o ponto
+- `severino ponto list` - Lista os últimos pontos batidos
 - `severino cara` - Comando de teste
 
 ## Requisitos
