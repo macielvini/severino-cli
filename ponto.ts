@@ -17,6 +17,9 @@ import {
   getConfigDir,
   decodeEmployeeId,
   getEncodedEmployee,
+  extractTimeEntriesFromHtml,
+  type TimeRecord,
+  formatTimeEntriesLog,
 } from "./utils";
 import {
   LocalCredentialsError,
@@ -25,15 +28,22 @@ import {
   AuthRequestError,
   RegisterPointFailedError,
 } from "./errors";
+import { format, subDays } from "date-fns";
+
+const BASE_URL = "https://sistema.facilitaponto.com.br";
+
+const log = console.log;
 
 async function runConfig(): Promise<void> {
   const existing = await loadAuthConfig();
 
   if (existing) {
-    console.log("Credenciais atuais:");
-    console.log(`  emp: ${existing.emp ?? ""}`);
-    console.log(`  cpf: ${existing.cpf ?? ""}`);
-    console.log(`  funcionario: ${existing.funcionario ?? ""}`);
+    const cookies = await loadCookies();
+    log("Credenciais atuais:");
+    log(`  emp: ${existing.emp ?? ""}`);
+    log(`  cpf: ${existing.cpf ?? ""}`);
+    log(`  funcionario: ${existing.funcionario ?? ""}`);
+    log(`Cookies de autenticação: \n${getCookieString(cookies)}`);
 
     const { overwrite } = await prompts({
       type: "confirm",
@@ -43,7 +53,7 @@ async function runConfig(): Promise<void> {
     });
 
     if (!overwrite) {
-      console.log("Nenhuma alteração realizada.");
+      log("Nenhuma alteração realizada.");
       return;
     }
   }
@@ -66,7 +76,7 @@ async function runConfig(): Promise<void> {
   ]);
 
   if (!responses.emp || !responses.cpf) {
-    console.log("Autenticação cancelada.");
+    log("Autenticação cancelada.");
     return;
   }
 
@@ -81,7 +91,7 @@ async function runConfig(): Promise<void> {
     funcionario: employeeId,
   });
 
-  console.log(`Credenciais salvas em ${getAuthConfigPath()}`);
+  log(`Credenciais salvas em ${getAuthConfigPath()}`);
 }
 
 async function fetchAuthCookies(
@@ -109,13 +119,10 @@ async function fetchAuthCookies(
 
   let response: Response;
   try {
-    response = await fetch(
-      "https://sistema.facilitaponto.com.br/registrar/auth",
-      {
-        method: "POST",
-        body: formData,
-      }
-    );
+    response = await fetch(`${BASE_URL}/registrar/auth`, {
+      method: "POST",
+      body: formData,
+    });
   } catch (error) {
     throw new AuthRequestError({ cause: error });
   }
@@ -129,6 +136,7 @@ async function fetchAuthCookies(
 
   const setCookieHeaders = response.headers.getSetCookie();
   const cookies = parseSetCookieHeaders(setCookieHeaders);
+  log("Cookies de autenticação: \n" + getCookieString(cookies));
   await saveCookies(cookies);
   return cookies;
 }
@@ -138,13 +146,10 @@ async function fetchEmployeeId(emp: string, cpf: string): Promise<string> {
   formData.append("emp", emp);
   formData.append("cpf", cpf);
 
-  const response = await fetch(
-    "https://sistema.facilitaponto.com.br/registrar/auth",
-    {
-      method: "POST",
-      body: formData,
-    }
-  );
+  const response = await fetch(`${BASE_URL}/registrar/auth`, {
+    method: "POST",
+    body: formData,
+  });
 
   if (!response.ok) {
     throw new Error(
@@ -157,7 +162,15 @@ async function fetchEmployeeId(emp: string, cpf: string): Promise<string> {
   return decodeEmployeeId(registro);
 }
 
-async function registerPoint(): Promise<void> {
+async function submitTimeEntry(): Promise<void> {
+  const { ok } = await prompts({
+    type: "confirm",
+    name: "ok",
+    message: "Pressione ENTER para continuar ou ESC para cancelar",
+    initial: true,
+  });
+  if (!ok) return;
+
   const forceRefresh = cli.flags.updateCookies as boolean;
   let cookies = await fetchAuthCookies(forceRefresh);
   const utmp = getTimestamp();
@@ -184,14 +197,11 @@ async function registerPoint(): Promise<void> {
 
   let response: Response;
   try {
-    response = await fetch(
-      "https://sistema.facilitaponto.com.br/registrar/grava",
-      {
-        method: "POST",
-        headers: { Cookie: cookieString },
-        body: formData,
-      }
-    );
+    response = await fetch(`${BASE_URL}/registrar/grava`, {
+      method: "POST",
+      headers: { Cookie: cookieString },
+      body: formData,
+    });
   } catch (error) {
     throw new RegisterPointFailedError("Erro ao registrar ponto.", {
       cause: error,
@@ -210,14 +220,11 @@ async function registerPoint(): Promise<void> {
 
       let retryResponse: Response;
       try {
-        retryResponse = await fetch(
-          "https://sistema.facilitaponto.com.br/registrar/grava",
-          {
-            method: "POST",
-            headers: { Cookie: retryCookieString },
-            body: formData,
-          }
-        );
+        retryResponse = await fetch(`${BASE_URL}/registrar/grava`, {
+          method: "POST",
+          headers: { Cookie: retryCookieString },
+          body: formData,
+        });
       } catch (error) {
         throw new RegisterPointFailedError("Erro ao registrar ponto.", {
           cause: error,
@@ -233,8 +240,8 @@ async function registerPoint(): Promise<void> {
         });
       }
 
-      console.log("Ponto registrado com sucesso!");
-      console.log(`Horário: ${utmp}`);
+      log("Ponto registrado com sucesso!");
+      log(`Horário: ${utmp}`);
       return;
     }
 
@@ -246,8 +253,53 @@ async function registerPoint(): Promise<void> {
     });
   }
 
-  console.log("Ponto registrado com sucesso!");
-  console.log(`Horário: ${utmp}`);
+  log("Ponto registrado com sucesso!");
+  log(`Horário: ${utmp}`);
+}
+
+async function getLastTimeEntries() {
+  const credentials = await loadAuthConfig();
+  if (!credentials?.cpf || !credentials?.emp) {
+    throw new CredentialsIncompleteError();
+  }
+
+  const body = new FormData();
+  body.append("usu", credentials.cpf);
+  body.append("emp", credentials.emp);
+
+  const authResponse = await fetch(`${BASE_URL}/portal/auth`, {
+    method: "POST",
+    body: body,
+  });
+
+  const authText = await authResponse.text();
+  if (authText.toLowerCase() !== "ok") {
+    throw new AuthFailedError(
+      "Erro ao autenticar no portal Facilita Ponto. Verifique suas credenciais."
+    );
+  }
+
+  const authCookies = parseSetCookieHeaders(
+    authResponse.headers.getSetCookie()
+  );
+
+  const datePeriod = new FormData();
+  datePeriod.append(
+    "periodo_inicio",
+    format(subDays(new Date(), 1), "dd/MM/yyyy")
+  );
+  datePeriod.append("periodo_fim", format(new Date(), "dd/MM/yyyy"));
+
+  const registrosResponse = await fetch(`${BASE_URL}/portal/registros`, {
+    method: "POST",
+    headers: { Cookie: getCookieString(authCookies) },
+    body: datePeriod,
+  });
+
+  const html = await registrosResponse.text();
+  const timeEntries = await extractTimeEntriesFromHtml(html);
+  const formattedTable = formatTimeEntriesLog(timeEntries);
+  log(formattedTable);
 }
 
 export async function pontoHandler(command: string | undefined) {
@@ -255,7 +307,11 @@ export async function pontoHandler(command: string | undefined) {
     case "config":
       await runConfig();
       break;
+    case "list":
+      await getLastTimeEntries();
+      break;
     default:
-      await registerPoint();
+      await submitTimeEntry();
   }
 }
+
