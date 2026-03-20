@@ -6,6 +6,8 @@ import {
   CredentialsIncompleteError,
   RegistroTokenNotFoundError,
 } from "./errors";
+import * as cheerio from "cheerio";
+import chalk from "chalk";
 
 export function getConfigDir(): string {
   return path.join(os.homedir(), ".config", "severino", "ponto");
@@ -159,4 +161,122 @@ export async function getEncodedEmployee(): Promise<string> {
     }),
     "utf8"
   ).toString("base64");
+}
+
+export interface TimeRecord {
+  date: string;
+  time: string;
+  type: string;
+  status: string;
+}
+
+export async function extractTimeEntriesFromHtml(
+  html: string
+): Promise<TimeRecord[]> {
+  const $ = cheerio.load(html);
+  const records: TimeRecord[] = [];
+
+  const dateHeaders: Array<{ date: string; h4: cheerio.Cheerio<any> }> = [];
+  $("h4 strong").each((_, element) => {
+    const dateElement = $(element);
+    const date = dateElement.text().trim();
+
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(date)) {
+      const h4Element = dateElement.closest("h4");
+      dateHeaders.push({ date, h4: h4Element });
+    }
+  });
+
+  const allPortlets = $(".portlet.light.bordered");
+
+  allPortlets.each((_, portletElement) => {
+    const portlet = $(portletElement);
+
+    let associatedDate: string | null = null;
+
+    const allElements = $("*");
+    let portletFound = false;
+
+    allElements.each((_, el) => {
+      const current = $(el);
+
+      if (current.is(portlet)) {
+        portletFound = true;
+        return false;
+      }
+
+      if (!portletFound && current.is("h4")) {
+        const dateText = current.find("strong").text().trim();
+        if (/^\d{2}\/\d{2}\/\d{4}$/.test(dateText)) {
+          associatedDate = dateText;
+        }
+      }
+    });
+
+    if (associatedDate) {
+      const timeElement = portlet.find(".caption-subject.bold.uppercase");
+      const time = timeElement.text().trim();
+
+      const typeElement = portlet
+        .find(".label-success, .label-danger, .label-warning, .label-info")
+        .first();
+      const type = typeElement.text().trim();
+
+      const statusElement = portlet.find(".label-primary");
+      const status = statusElement.text().trim();
+
+      if (time && type) {
+        records.push({
+          date: associatedDate,
+          time,
+          type,
+          status,
+        });
+      }
+    }
+  });
+
+  return records;
+}
+
+export function formatTimeEntriesLog(timeEntries: TimeRecord[]): string {
+  if (timeEntries.length === 0) {
+    return "";
+  }
+
+  let maxDateWidth = 0;
+  let maxTimeWidth = 0;
+  let maxTypeWidth = 0;
+
+  for (const entry of timeEntries) {
+    maxDateWidth = Math.max(maxDateWidth, entry.date.length);
+    maxTimeWidth = Math.max(maxTimeWidth, entry.time.length);
+    maxTypeWidth = Math.max(maxTypeWidth, entry.type.length);
+  }
+
+  const rows: string[] = [];
+  let lastEntry = timeEntries[0];
+  for (const entry of timeEntries) {
+    if (lastEntry && lastEntry.date !== entry.date) {
+      rows.push("");
+      lastEntry = entry;
+    }
+
+    const date = entry.date.padEnd(maxDateWidth);
+    const time = chalk.bold(entry.time.padEnd(maxTimeWidth));
+
+    let coloredType: string;
+    const typeLower = entry.type.toLowerCase();
+    if (typeLower.includes("entrada") || typeLower.includes("normal")) {
+      coloredType = chalk.green(entry.type.padEnd(maxTypeWidth));
+    } else if (typeLower.includes("saída") || typeLower.includes("saida")) {
+      coloredType = chalk.red(entry.type.padEnd(maxTypeWidth));
+    } else {
+      coloredType = chalk.cyan(entry.type.padEnd(maxTypeWidth));
+    }
+
+    rows.push(`${date}  ${time}  ${coloredType}`);
+  }
+
+  return rows.join("\n");
 }

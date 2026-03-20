@@ -1,6 +1,6 @@
 {
   "name": "severino-cli",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Severino is a CLI tool for Loomi",
   "type": "module",
   "main": "index.ts",
@@ -30,6 +30,9 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "chalk": "^5.6.2",
+    "cheerio": "^1.0.0",
+    "date-fns": "^4.1.0",
     "meow": "^14.0.0",
     "prompts": "^2.4.2"
   }

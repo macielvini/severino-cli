@@ -8,6 +8,7 @@ Usage
 Commands
   severino ponto           Registra o ponto
   severino ponto config    Configura autenticação
+  severino ponto list      Lista os pontos registrados
 
 Options
   --help, -h           Exibe esta mensagem
